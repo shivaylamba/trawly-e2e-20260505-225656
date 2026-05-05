@@ -1,0 +1,65 @@
+name: trawly-e2e
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Exercise CLI formats and inputs
+        run: |
+          node dist/cli.js inspect --lockfile tests/fixtures/package-lock.json --format json --output artifacts/npm.json --no-risk
+          node dist/cli.js inspect --lockfile tests/fixtures/pnpm-lock.yaml --format markdown --output artifacts/pnpm.md --no-risk
+          node dist/cli.js inspect tests/fixtures/yarn-v1 --format json --output artifacts/yarn-v1.json --no-risk
+          node dist/cli.js inspect tests/fixtures/yarn-berry --format json --output artifacts/yarn-berry.json --no-risk
+          node dist/cli.js inspect --sbom tests/fixtures/cyclonedx.json --format json --output artifacts/cdx-json.json --no-risk
+          node dist/cli.js inspect --sbom tests/fixtures/cyclonedx.xml --format json --output artifacts/cdx-xml.json --no-risk
+          node dist/cli.js inspect --sbom tests/fixtures/spdx.json --format json --output artifacts/spdx-json.json --no-risk
+          node dist/cli.js inspect --sbom tests/fixtures/spdx.spdx --format json --output artifacts/spdx-tv.json --no-risk
+          node dist/cli.js inspect --lockfile tests/fixtures/package-lock.json --format sarif --output artifacts/trawly.sarif --no-risk
+          node dist/cli.js inspect --lockfile tests/fixtures/package-lock.json --write-baseline artifacts/baseline.json --format json --output artifacts/baseline-write.json --no-risk
+          node dist/cli.js scan --lockfile tests/fixtures/package-lock.json --baseline artifacts/baseline.json --fail-on low --format json --output artifacts/baseline-scan.json --no-risk
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: artifacts/trawly.sarif
+          category: trawly-cli
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cli-artifacts
+          path: artifacts
+
+  composite-action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./
+        with:
+          path: .
+          fail-on: none
+          upload-sarif: "true"
+          sarif-output: trawly-action.sarif
+          markdown-output: trawly-action.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: action-artifacts
+          path: |
+            trawly-action.sarif
+            trawly-action.md
