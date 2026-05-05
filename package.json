@@ -1,0 +1,58 @@
+{
+  "name": "trawly",
+  "version": "0.0.1",
+  "description": "Dependency sanity scanner for npm projects. Scans installed package versions against OSV and reports known vulnerabilities.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "trawly": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "scan": "node --import tsx/esm src/cli.ts scan",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "security",
+    "vulnerability",
+    "scanner",
+    "npm",
+    "osv",
+    "supply-chain",
+    "dependency",
+    "audit"
+  ],
+  "dependencies": {
+    "commander": "^12.1.0",
+    "kleur": "^4.1.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
