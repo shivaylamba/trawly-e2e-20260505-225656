@@ -35,6 +35,19 @@ jobs:
           node dist/cli.js inspect --lockfile tests/fixtures/package-lock.json --format sarif --output artifacts/trawly.sarif --no-risk
           node dist/cli.js inspect --lockfile tests/fixtures/package-lock.json --write-baseline artifacts/baseline.json --format json --output artifacts/baseline-write.json --no-risk
           node dist/cli.js scan --lockfile tests/fixtures/package-lock.json --baseline artifacts/baseline.json --fail-on low --format json --output artifacts/baseline-scan.json --no-risk
+          cat > artifacts/trawly.toml <<'EOF'
+          failOn = "none"
+          risk = false
+
+          [[ignore]]
+          id = "GHSA-xvch-5gv4-984h"
+          package = "minimist"
+          ecosystem = "npm"
+          expires = "2026-12-31"
+          reason = "E2E ignore fixture"
+          EOF
+          node dist/cli.js inspect --lockfile tests/fixtures/package-lock.json --config artifacts/trawly.toml --format json --output artifacts/config-ignore.json
+          node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('artifacts/config-ignore.json','utf8')); if (j.ignoredFindings.length !== 1) throw new Error('expected one ignored finding');"
       - uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: artifacts/trawly.sarif
