@@ -48,6 +48,43 @@ jobs:
           EOF
           node dist/cli.js inspect --lockfile tests/fixtures/package-lock.json --config artifacts/trawly.toml --format json --output artifacts/config-ignore.json
           node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('artifacts/config-ignore.json','utf8')); if (j.ignoredFindings.length !== 1) throw new Error('expected one ignored finding');"
+          mkdir -p artifacts/risk
+          cat > artifacts/risk/package-lock.json <<'EOF'
+          {
+            "lockfileVersion": 3,
+            "packages": {
+              "": {
+                "dependencies": {
+                  "fresh-risk-pkg": "1.0.0"
+                }
+              },
+              "node_modules/fresh-risk-pkg": {
+                "version": "1.0.0",
+                "resolved": "https://evil.example/fresh-risk-pkg/-/fresh-risk-pkg-1.0.0.tgz",
+                "hasInstallScript": true
+              }
+            }
+          }
+          EOF
+          node <<'NODE' &
+          const http = require("node:http");
+          const day = 24 * 60 * 60 * 1000;
+          const payload = {
+            time: {
+              created: new Date(Date.now() - 5 * day).toISOString(),
+              "1.0.0": new Date(Date.now() - day).toISOString()
+            }
+          };
+          http.createServer((req, res) => {
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify(payload));
+          }).listen(4873, "127.0.0.1");
+          NODE
+          registry_pid=$!
+          trap 'kill "$registry_pid" 2>/dev/null || true' EXIT
+          sleep 1
+          TRAWLY_NPM_REGISTRY_URL=http://127.0.0.1:4873 node dist/cli.js inspect --lockfile artifacts/risk/package-lock.json --format json --output artifacts/risk.json
+          node -e "const fs=require('fs'); const ids=JSON.parse(fs.readFileSync('artifacts/risk.json','utf8')).findings.map(f=>f.id).sort(); const expected=['TRAWLY-INSTALL-SCRIPT','TRAWLY-NEW-PACKAGE','TRAWLY-NEW-VERSION','TRAWLY-UNEXPECTED-REGISTRY']; for (const id of expected) if (!ids.includes(id)) throw new Error('missing risk signal '+id+' in '+ids.join(','));"
       - uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: artifacts/trawly.sarif
